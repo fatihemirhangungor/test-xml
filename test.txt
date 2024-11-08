@@ -67,3 +67,79 @@ public class ExcelToXmlConverter
         return value;
     }
 }
+************************
+
+using System;
+using System.Xml.Linq;
+using System.IO;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+
+public class ExcelToXmlConverter
+{
+    public static void ConvertLargeExcelToXml(string excelFilePath, string xmlOutputPath)
+    {
+        var root = new XElement("Workbook");
+
+        using (SpreadsheetDocument document = SpreadsheetDocument.Open(excelFilePath, false))
+        {
+            WorkbookPart workbookPart = document.WorkbookPart;
+            var sheets = workbookPart.Workbook.Sheets;
+
+            foreach (Sheet sheet in sheets)
+            {
+                var sheetData = new XElement("Sheet", new XAttribute("Name", sheet.Name));
+                WorksheetPart worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
+
+                using (var reader = OpenXmlReader.Create(worksheetPart))
+                {
+                    while (reader.Read())
+                    {
+                        if (reader.ElementType == typeof(Row))
+                        {
+                            var rowData = new XElement("Row");
+                            reader.ReadFirstChild();
+
+                            do
+                            {
+                                if (reader.ElementType == typeof(Cell))
+                                {
+                                    Cell cell = (Cell)reader.LoadCurrentElement();
+                                    string cellValue = GetCellValue(cell, workbookPart);
+                                    rowData.Add(new XElement("Cell", cellValue));
+                                }
+                            }
+                            while (reader.ReadNextSibling());
+
+                            sheetData.Add(rowData);
+                        }
+                    }
+                }
+
+                root.Add(sheetData);
+            }
+        }
+
+        // Save the XML document to the specified file path
+        var xmlDocument = new XDocument(root);
+        xmlDocument.Save(xmlOutputPath);
+        
+        Console.WriteLine($"Excel file has been converted to XML and saved at {xmlOutputPath}");
+    }
+
+    private static string GetCellValue(Cell cell, WorkbookPart workbookPart)
+    {
+        string value = cell.InnerText;
+
+        if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
+        {
+            var stringTable = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
+            if (stringTable != null)
+            {
+                value = stringTable.SharedStringTable.ElementAt(int.Parse(value)).InnerText;
+            }
+        }
+
+        return value;
+    }
+}
