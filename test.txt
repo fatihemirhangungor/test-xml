@@ -148,3 +148,24 @@ public class ExcelToXmlConverter
         return columnIndex - 1;
     }
 }
+
+private static string GetCellValue(Cell cell, List<string> sharedStrings)
+{
+    string value = cell.InnerText;
+
+    // If cell is a shared string, retrieve the actual text from sharedStrings list
+    if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString && int.TryParse(value, out int index))
+    {
+        return sharedStrings.Count > index ? sharedStrings[index] : value;
+    }
+    else if (cell.DataType == null) // Only apply for numeric cells
+    {
+        if (decimal.TryParse(value, out decimal number))
+        {
+            // Format the number without scientific notation
+            return number.ToString("G"); // "G" avoids scientific notation for large values
+        }
+    }
+
+    return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
+}
