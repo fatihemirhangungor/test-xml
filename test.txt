@@ -1,4 +1,104 @@
-// Cache the shared string table in a list
+using System;
+using System.Xml.Linq;
+using System.IO;
+using System.Collections.Generic;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+
+public class ExcelToXmlConverter
+{
+    public static void ConvertLargeExcelToXml(string excelFilePath, string xmlOutputPath, int chunkSize = 300000)
+    {
+        var root = new XElement("Workbook");
+
+        using (SpreadsheetDocument document = SpreadsheetDocument.Open(excelFilePath, false))
+        {
+            WorkbookPart workbookPart = document.WorkbookPart;
+            var sheets = workbookPart.Workbook.Sheets;
+
+            // Cache the shared string table to avoid repeated lookups
+            List<string> sharedStrings = LoadSharedStringTable(workbookPart);
+
+            foreach (Sheet sheet in sheets)
+            {
+                var sheetData = new XElement("Sheet", new XAttribute("Name", sheet.Name));
+                WorksheetPart worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
+
+                using (var reader = OpenXmlReader.Create(worksheetPart))
+                {
+                    int rowCount = 0;
+                    var chunkData = new List<XElement>();
+
+                    while (reader.Read())
+                    {
+                        if (reader.ElementType == typeof(Row))
+                        {
+                            var rowData = new XElement("Row");
+
+                            // Track the current column index to handle empty cells
+                            int expectedColumnIndex = 0;
+
+                            // Read all cells in the current row
+                            if (reader.ReadFirstChild())
+                            {
+                                while (reader.ElementType == typeof(Cell))
+                                {
+                                    Cell cell = (Cell)reader.LoadCurrentElement();
+
+                                    // Get the actual column index of this cell
+                                    int actualColumnIndex = GetColumnIndexFromCellReference(cell.CellReference);
+
+                                    // Add empty cells for any skipped columns
+                                    while (expectedColumnIndex < actualColumnIndex)
+                                    {
+                                        rowData.Add(new XElement("Cell", string.Empty));
+                                        expectedColumnIndex++;
+                                    }
+
+                                    // Get the cell value (including shared strings)
+                                    string cellValue = GetCellValue(cell, sharedStrings);
+                                    rowData.Add(new XElement("Cell", cellValue ?? string.Empty));
+
+                                    expectedColumnIndex++;
+
+                                    // Move to the next sibling, if any
+                                    if (!reader.ReadNextSibling())
+                                        break;
+                                }
+                            }
+
+                            chunkData.Add(rowData);
+                            rowCount++;
+
+                            // If we've read a full chunk, add it to the XML and reset
+                            if (rowCount == chunkSize)
+                            {
+                                sheetData.Add(chunkData);
+                                chunkData.Clear();
+                                rowCount = 0;
+                            }
+                        }
+                    }
+
+                    // Add any remaining rows in the chunk that were less than chunkSize
+                    if (rowCount > 0)
+                    {
+                        sheetData.Add(chunkData);
+                    }
+                }
+
+                root.Add(sheetData);
+            }
+        }
+
+        // Save the XML document to the specified file path
+        var xmlDocument = new XDocument(root);
+        xmlDocument.Save(xmlOutputPath);
+        
+        Console.WriteLine($"Excel file has been converted to XML and saved at {xmlOutputPath}");
+    }
+
+    // Cache the shared string table in a list
     private static List<string> LoadSharedStringTable(WorkbookPart workbookPart)
     {
         var sharedStrings = new List<string>();
@@ -25,5 +125,26 @@
             return sharedStrings.Count > index ? sharedStrings[index] : value;
         }
 
-        return value;
+        // Return empty string for empty cells
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
     }
+
+    // Utility to get the column index from a cell reference (e.g., "A1" => 0, "B1" => 1)
+    private static int GetColumnIndexFromCellReference(string cellReference)
+    {
+        int columnIndex = 0;
+        foreach (char ch in cellReference)
+        {
+            if (char.IsLetter(ch))
+            {
+                columnIndex *= 26;
+                columnIndex += (ch - 'A' + 1);
+            }
+            else
+            {
+                break;
+            }
+        }
+        return columnIndex - 1;
+    }
+}
