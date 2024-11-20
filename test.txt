@@ -1,171 +1,19 @@
-using System;
-using System.Xml.Linq;
-using System.IO;
-using System.Collections.Generic;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-
-public class ExcelToXmlConverter
-{
-    public static void ConvertLargeExcelToXml(string excelFilePath, string xmlOutputPath, int chunkSize = 300000)
-    {
-        var root = new XElement("Workbook");
-
-        using (SpreadsheetDocument document = SpreadsheetDocument.Open(excelFilePath, false))
+public DataTable ReadExcel(string fileName, string sheetName)
         {
-            WorkbookPart workbookPart = document.WorkbookPart;
-            var sheets = workbookPart.Workbook.Sheets;
-
-            // Cache the shared string table to avoid repeated lookups
-            List<string> sharedStrings = LoadSharedStringTable(workbookPart);
-
-            foreach (Sheet sheet in sheets)
+            string conn = string.Empty;
+            DataTable dtexcel = new DataTable();
+            conn = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + fileName + ";Extended Properties='Excel 12.0;HDR=NO';";
+            using (OleDbConnection con = new OleDbConnection(conn))
             {
-                var sheetData = new XElement("Sheet", new XAttribute("Name", sheet.Name));
-                WorksheetPart worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-
-                using (var reader = OpenXmlReader.Create(worksheetPart))
+                try
                 {
-                    int rowCount = 0;
-                    var chunkData = new List<XElement>();
-
-                    while (reader.Read())
-                    {
-                        if (reader.ElementType == typeof(Row))
-                        {
-                            var rowData = new XElement("Row");
-
-                            // Track the current column index to handle empty cells
-                            int expectedColumnIndex = 0;
-
-                            // Read all cells in the current row
-                            if (reader.ReadFirstChild())
-                            {
-                                while (reader.ElementType == typeof(Cell))
-                                {
-                                    Cell cell = (Cell)reader.LoadCurrentElement();
-
-                                    // Get the actual column index of this cell
-                                    int actualColumnIndex = GetColumnIndexFromCellReference(cell.CellReference);
-
-                                    // Add empty cells for any skipped columns
-                                    while (expectedColumnIndex < actualColumnIndex)
-                                    {
-                                        rowData.Add(new XElement("Cell", string.Empty));
-                                        expectedColumnIndex++;
-                                    }
-
-                                    // Get the cell value (including shared strings)
-                                    string cellValue = GetCellValue(cell, sharedStrings);
-                                    rowData.Add(new XElement("Cell", cellValue ?? string.Empty));
-
-                                    expectedColumnIndex++;
-
-                                    // Move to the next sibling, if any
-                                    if (!reader.ReadNextSibling())
-                                        break;
-                                }
-                            }
-
-                            chunkData.Add(rowData);
-                            rowCount++;
-
-                            // If we've read a full chunk, add it to the XML and reset
-                            if (rowCount == chunkSize)
-                            {
-                                sheetData.Add(chunkData);
-                                chunkData.Clear();
-                                rowCount = 0;
-                            }
-                        }
-                    }
-
-                    // Add any remaining rows in the chunk that were less than chunkSize
-                    if (rowCount > 0)
-                    {
-                        sheetData.Add(chunkData);
-                    }
+                    OleDbDataAdapter oleAdpt = new OleDbDataAdapter("SELECT * FROM " + "[" + sheetName + "$]", con);
+                    oleAdpt.Fill(dtexcel); //fill excel data into dataTable  
                 }
-
-                root.Add(sheetData);
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
             }
+            return dtexcel;
         }
-
-        // Save the XML document to the specified file path
-        var xmlDocument = new XDocument(root);
-        xmlDocument.Save(xmlOutputPath);
-        
-        Console.WriteLine($"Excel file has been converted to XML and saved at {xmlOutputPath}");
-    }
-
-    // Cache the shared string table in a list
-    private static List<string> LoadSharedStringTable(WorkbookPart workbookPart)
-    {
-        var sharedStrings = new List<string>();
-        var stringTablePart = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
-
-        if (stringTablePart != null)
-        {
-            foreach (var item in stringTablePart.SharedStringTable.Elements<SharedStringItem>())
-            {
-                sharedStrings.Add(item.InnerText);
-            }
-        }
-
-        return sharedStrings;
-    }
-
-    private static string GetCellValue(Cell cell, List<string> sharedStrings)
-    {
-        string value = cell.InnerText;
-
-        // Use cached shared strings if the cell's data type is SharedString
-        if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString && int.TryParse(value, out int index))
-        {
-            return sharedStrings.Count > index ? sharedStrings[index] : value;
-        }
-
-        // Return empty string for empty cells
-        return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
-    }
-
-    // Utility to get the column index from a cell reference (e.g., "A1" => 0, "B1" => 1)
-    private static int GetColumnIndexFromCellReference(string cellReference)
-    {
-        int columnIndex = 0;
-        foreach (char ch in cellReference)
-        {
-            if (char.IsLetter(ch))
-            {
-                columnIndex *= 26;
-                columnIndex += (ch - 'A' + 1);
-            }
-            else
-            {
-                break;
-            }
-        }
-        return columnIndex - 1;
-    }
-}
-
-private static string GetCellValue(Cell cell, List<string> sharedStrings)
-{
-    string value = cell.InnerText;
-
-    // If cell is a shared string, retrieve the actual text from sharedStrings list
-    if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString && int.TryParse(value, out int index))
-    {
-        return sharedStrings.Count > index ? sharedStrings[index] : value;
-    }
-    else if (cell.DataType == null) // Only apply for numeric cells
-    {
-        if (decimal.TryParse(value, out decimal number))
-        {
-            // Format the number without scientific notation
-            return number.ToString("G"); // "G" avoids scientific notation for large values
-        }
-    }
-
-    return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
-}
