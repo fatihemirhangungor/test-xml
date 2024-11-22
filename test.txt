@@ -1,69 +1,3 @@
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-using System;
-using System.Data;
-
-public DataTable ReadExcel(string fileName, string sheetName)
-{
-    DataTable dataTable = new DataTable();
-
-    try
-    {
-        using (SpreadsheetDocument document = SpreadsheetDocument.Open(fileName, false))
-        {
-            WorkbookPart workbookPart = document.WorkbookPart;
-            Sheet sheet = workbookPart.Workbook.Descendants<Sheet>()
-                .FirstOrDefault(s => s.Name == sheetName);
-
-            if (sheet == null)
-                throw new ArgumentException($"Sheet with name '{sheetName}' not found.");
-
-            WorksheetPart worksheetPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id);
-            SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
-
-            // Read rows and columns
-            bool headerRow = true;
-            foreach (Row row in sheetData.Elements<Row>())
-            {
-                DataRow dataRow = dataTable.NewRow();
-                int cellIndex = 0;
-
-                foreach (Cell cell in row.Elements<Cell>())
-                {
-                    // Adjust for missing cells
-                    int currentCellIndex = GetColumnIndex(cell.CellReference) - 1;
-                    while (cellIndex < currentCellIndex)
-                    {
-                        if (headerRow)
-                            dataTable.Columns.Add($"Column{cellIndex + 1}");
-                        cellIndex++;
-                    }
-
-                    string cellValue = GetCellValue(cell, workbookPart);
-
-                    if (headerRow)
-                        dataTable.Columns.Add(cellValue ?? $"Column{cellIndex + 1}");
-                    else
-                        dataRow[cellIndex] = cellValue;
-
-                    cellIndex++;
-                }
-
-                if (!headerRow)
-                    dataTable.Rows.Add(dataRow);
-
-                headerRow = false;
-            }
-        }
-    }
-    catch (Exception ex)
-    {
-        throw new ApplicationException("Error reading Excel file.", ex);
-    }
-
-    return dataTable;
-}
-
 private string GetCellValue(Cell cell, WorkbookPart workbookPart)
 {
     if (cell == null || cell.CellValue == null)
@@ -78,24 +12,47 @@ private string GetCellValue(Cell cell, WorkbookPart workbookPart)
             .ElementAt(int.Parse(value)).InnerText;
     }
 
+    // Handle numbers and apply formatting if necessary
+    if (cell.DataType == null)
+    {
+        // Get cell format index
+        uint styleIndex = cell.StyleIndex != null ? cell.StyleIndex.Value : 0;
+        CellFormat cellFormat = workbookPart.WorkbookStylesPart.Stylesheet.CellFormats
+            .ChildElements[(int)styleIndex] as CellFormat;
+
+        if (cellFormat != null)
+        {
+            // Get the number format ID
+            uint numberFormatId = cellFormat.NumberFormatId != null
+                ? cellFormat.NumberFormatId.Value
+                : 0;
+
+            // Retrieve raw numeric value
+            if (double.TryParse(value, out double rawNumericValue))
+            {
+                // Apply formatting based on the number format ID
+                return ApplyNumberFormat(rawNumericValue, numberFormatId);
+            }
+        }
+    }
+
     return value;
 }
 
-private int GetColumnIndex(string cellReference)
+private string ApplyNumberFormat(double value, uint formatId)
 {
-    if (string.IsNullOrEmpty(cellReference))
-        return -1;
-
-    // Extract column letters from the cell reference
-    string columnReference = new string(cellReference
-        .Where(char.IsLetter).ToArray());
-
-    int columnIndex = 0;
-    foreach (char letter in columnReference)
+    // Common Excel formats
+    switch (formatId)
     {
-        columnIndex *= 26;
-        columnIndex += (letter - 'A' + 1);
+        case 2: // "#,##0.00"
+            return value.ToString("N2");
+        case 3: // "#,##0"
+            return value.ToString("N0");
+        case 4: // "$#,##0.00"
+            return value.ToString("C2");
+        case 9: // "0%"
+            return (value * 100).ToString("0.##") + "%";
+        default:
+            return value.ToString(); // Default raw value
     }
-
-    return columnIndex;
 }
