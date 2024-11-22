@@ -1,58 +1,62 @@
-private string GetCellValue(Cell cell, WorkbookPart workbookPart)
+using System;
+using System.Data;
+using System.IO;
+using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel; // For .xlsx files
+using NPOI.HSSF.UserModel; // For .xls files
+
+public class ExcelReader
 {
-    if (cell == null || cell.CellValue == null)
-        return null;
-
-    string value = cell.CellValue.InnerText;
-
-    // Check if the cell contains a shared string
-    if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
+    public static DataTable ReadExcelToDataTable(string filePath)
     {
-        return workbookPart.SharedStringTablePart.SharedStringTable
-            .ElementAt(int.Parse(value)).InnerText;
-    }
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+            throw new FileNotFoundException("The specified file does not exist.");
 
-    // Handle numbers and apply formatting if necessary
-    if (cell.DataType == null)
-    {
-        // Get cell format index
-        uint styleIndex = cell.StyleIndex != null ? cell.StyleIndex.Value : 0;
-        CellFormat cellFormat = workbookPart.WorkbookStylesPart.Stylesheet.CellFormats
-            .ChildElements[(int)styleIndex] as CellFormat;
+        IWorkbook workbook;
 
-        if (cellFormat != null)
+        // Determine file type
+        using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
         {
-            // Get the number format ID
-            uint numberFormatId = cellFormat.NumberFormatId != null
-                ? cellFormat.NumberFormatId.Value
-                : 0;
-
-            // Retrieve raw numeric value
-            if (double.TryParse(value, out double rawNumericValue))
+            if (Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
             {
-                // Apply formatting based on the number format ID
-                return ApplyNumberFormat(rawNumericValue, numberFormatId);
+                workbook = new XSSFWorkbook(fileStream); // For .xlsx files
+            }
+            else if (Path.GetExtension(filePath).Equals(".xls", StringComparison.OrdinalIgnoreCase))
+            {
+                workbook = new HSSFWorkbook(fileStream); // For .xls files
+            }
+            else
+            {
+                throw new NotSupportedException("The specified file format is not supported.");
             }
         }
-    }
 
-    return value;
-}
+        var sheet = workbook.GetSheetAt(0); // Get the first sheet
+        var dataTable = new DataTable();
 
-private string ApplyNumberFormat(double value, uint formatId)
-{
-    // Common Excel formats
-    switch (formatId)
-    {
-        case 2: // "#,##0.00"
-            return value.ToString("N2");
-        case 3: // "#,##0"
-            return value.ToString("N0");
-        case 4: // "$#,##0.00"
-            return value.ToString("C2");
-        case 9: // "0%"
-            return (value * 100).ToString("0.##") + "%";
-        default:
-            return value.ToString(); // Default raw value
+        // Read header row (assuming the first row contains column names)
+        var headerRow = sheet.GetRow(0);
+        for (int col = 0; col < headerRow.LastCellNum; col++)
+        {
+            var columnName = headerRow.GetCell(col)?.ToString() ?? $"Column{col + 1}";
+            dataTable.Columns.Add(columnName);
+        }
+
+        // Read the rest of the rows
+        for (int row = 1; row <= sheet.LastRowNum; row++) // Start from the second row
+        {
+            var excelRow = sheet.GetRow(row);
+            if (excelRow == null) continue; // Skip empty rows
+
+            var dataRow = dataTable.NewRow();
+            for (int col = 0; col < excelRow.LastCellNum; col++)
+            {
+                var cell = excelRow.GetCell(col);
+                dataRow[col] = cell?.ToString() ?? string.Empty; // Handle null cells
+            }
+            dataTable.Rows.Add(dataRow);
+        }
+
+        return dataTable;
     }
 }
