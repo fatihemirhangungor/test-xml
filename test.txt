@@ -60,5 +60,3 @@ public class ExcelReader
         return dataTable;
     }
 }
-
-Kısa bir süre birlikte çalışma şansı bulduk, ama bu süre zarfında bile liderliğinizin ve rehberliğinizin ekibimiz üzerinde ne kadar etkili olduğunu gördüm. Sakin ve çözüm odaklı yaklaşımınızla birçok konuda ilham oldunuz. Emeklilik hayatınızda mutluluklar dilerim!
