@@ -28,16 +28,21 @@ private static string GetFormattedCellValue(WorkbookPart workbookPart, Cell cell
     CellFormat cellFormat = (CellFormat)stylesheet.CellFormats
         .ElementAt((int)cell.StyleIndex.Value);
 
-    if (cellFormat.NumberFormatId != null)
+    uint numberFormatId = cellFormat.NumberFormatId?.Value ?? 0;
+
+    // Handle standard number formats
+    return ApplyNumberFormat(numberFormatId, numericValue);
+}
+
+private static string ApplyNumberFormat(uint numberFormatId, double numericValue)
+{
+    return numberFormatId switch
     {
-        uint numberFormatId = cellFormat.NumberFormatId.Value;
-
-        // Handle common number formats (e.g., currency, comma-separated numbers, etc.)
-        if (numberFormatId == 4) // Number with two decimals
-            return numericValue.ToString("0.00");
-        if (numberFormatId == 44) // Number with commas and two decimals
-            return numericValue.ToString("#,##0.00");
-    }
-
-    return numericValue.ToString(); // Default if no specific number format is detected
+        1 => numericValue.ToString("0"),                // Integer
+        2 => numericValue.ToString("0.00"),            // Decimal with 2 places
+        3 => numericValue.ToString("#,##0"),           // Comma-separated integer
+        4 => numericValue.ToString("#,##0.00"),        // Comma-separated with 2 decimals
+        44 => numericValue.ToString("#,##0.00"),       // Custom number format
+        _ => numericValue.ToString("G"),               // General format (fallback)
+    };
 }
