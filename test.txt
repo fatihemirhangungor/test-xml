@@ -1,62 +1,67 @@
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
 using System;
-using System.Data;
-using System.IO;
-using NPOI.SS.UserModel;
-using NPOI.XSSF.UserModel; // For .xlsx files
-using NPOI.HSSF.UserModel; // For .xls files
+using System.Collections.Generic;
 
-public class ExcelReader
+class Program
 {
-    public static DataTable ReadExcelToDataTable(string filePath)
+    static void Main(string[] args)
     {
-        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
-            throw new FileNotFoundException("The specified file does not exist.");
+        string filePath = "PathToYourExcelFile.xlsx";
 
-        IWorkbook workbook;
-
-        // Determine file type
-        using (var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+        try
         {
-            if (Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            var data = ReadExcelFile(filePath);
+            Console.WriteLine("Excel Data:");
+            foreach (var row in data)
             {
-                workbook = new XSSFWorkbook(fileStream); // For .xlsx files
+                Console.WriteLine(string.Join(", ", row));
             }
-            else if (Path.GetExtension(filePath).Equals(".xls", StringComparison.OrdinalIgnoreCase))
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    public static List<List<string>> ReadExcelFile(string filePath)
+    {
+        var result = new List<List<string>>();
+
+        using (SpreadsheetDocument doc = SpreadsheetDocument.Open(filePath, false))
+        {
+            WorkbookPart workbookPart = doc.WorkbookPart;
+            Sheet firstSheet = workbookPart.Workbook.Sheets.GetFirstChild<Sheet>();
+            WorksheetPart worksheetPart = (WorksheetPart)workbookPart.GetPartById(firstSheet.Id);
+            SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+
+            foreach (Row row in sheetData.Elements<Row>())
             {
-                workbook = new HSSFWorkbook(fileStream); // For .xls files
-            }
-            else
-            {
-                throw new NotSupportedException("The specified file format is not supported.");
+                var rowData = new List<string>();
+                foreach (Cell cell in row.Elements<Cell>())
+                {
+                    rowData.Add(GetCellValue(workbookPart, cell));
+                }
+                result.Add(rowData);
             }
         }
 
-        var sheet = workbook.GetSheetAt(0); // Get the first sheet
-        var dataTable = new DataTable();
+        return result;
+    }
 
-        // Read header row (assuming the first row contains column names)
-        var headerRow = sheet.GetRow(0);
-        for (int col = 0; col < headerRow.LastCellNum; col++)
+    private static string GetCellValue(WorkbookPart workbookPart, Cell cell)
+    {
+        if (cell == null || cell.CellValue == null) return string.Empty;
+
+        string value = cell.CellValue.Text;
+
+        // Check if the value is a shared string
+        if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
         {
-            var columnName = headerRow.GetCell(col)?.ToString() ?? $"Column{col + 1}";
-            dataTable.Columns.Add(columnName);
+            return workbookPart.SharedStringTablePart.SharedStringTable
+                .ChildElements[int.Parse(value)].InnerText;
         }
 
-        // Read the rest of the rows
-        for (int row = 1; row <= sheet.LastRowNum; row++) // Start from the second row
-        {
-            var excelRow = sheet.GetRow(row);
-            if (excelRow == null) continue; // Skip empty rows
-
-            var dataRow = dataTable.NewRow();
-            for (int col = 0; col < excelRow.LastCellNum; col++)
-            {
-                var cell = excelRow.GetCell(col);
-                dataRow[col] = cell?.ToString() ?? string.Empty; // Handle null cells
-            }
-            dataTable.Rows.Add(dataRow);
-        }
-
-        return dataTable;
+        return value;
     }
 }
