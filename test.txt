@@ -35,4 +35,23 @@ class Program
         }
         return value;
     }
+
+    static string GetCellValue(Cell cell, WorkbookPart workbookPart)
+    {
+        string value = cell.CellValue?.InnerText;
+        if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
+        {
+            return workbookPart.SharedStringTablePart.SharedStringTable.ChildElements[int.Parse(value)].InnerText;
+        }
+    
+        if (decimal.TryParse(value, out decimal decimalValue))
+        {
+            // Round the value to 3 decimal places
+            decimalValue = Math.Round(decimalValue, 3);
+            return decimalValue.ToString();
+        }
+        
+        return value;
+    }
+
 }
