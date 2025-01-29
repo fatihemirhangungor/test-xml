@@ -1,48 +1,54 @@
-private static string GetCellValue(WorkbookPart workbookPart, Cell cell)
+using System;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+
+class Program
 {
-    if (cell == null) return string.Empty;
-
-    string value = cell.CellValue?.Text ?? string.Empty;
-
-    // If the cell is a shared string, retrieve the value from the shared string table
-    if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
+    static void Main(string[] args)
     {
-        return workbookPart.SharedStringTablePart.SharedStringTable
-            .ChildElements[int.Parse(value)].InnerText;
+        string filePath = @"path_to_your_excel_file.xlsx";
+
+        // Open the Excel file
+        using (SpreadsheetDocument spreadsheet = SpreadsheetDocument.Open(filePath, true))
+        {
+            // Get the first worksheet
+            WorkbookPart workbookPart = spreadsheet.WorkbookPart;
+            WorksheetPart worksheetPart = workbookPart.WorksheetParts.First();
+            SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+
+            foreach (Row row in sheetData.Elements<Row>())
+            {
+                foreach (Cell cell in row.Elements<Cell>())
+                {
+                    // Read the cell value
+                    string cellValue = GetCellValue(workbookPart, cell);
+
+                    // Check if the cell format is numeric
+                    if (cell.DataType == null || cell.DataType.Value == CellValues.Number)
+                    {
+                        // Convert the value to text
+                        cell.DataType = CellValues.String;
+                        cell.CellValue = new CellValue(cellValue);
+                    }
+
+                    // Print the value
+                    Console.WriteLine(cell.CellValue?.Text);
+                }
+            }
+        }
     }
 
-    // If the cell is numeric, format it based on its style
-    if (cell.DataType == null && double.TryParse(value, out double numericValue))
+    static string GetCellValue(WorkbookPart workbookPart, Cell cell)
     {
-        return GetFormattedCellValue(workbookPart, cell, numericValue);
+        string value = cell.CellValue?.Text;
+
+        if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
+        {
+            // Retrieve the shared string value
+            var stringTable = workbookPart.GetPartsOfType<SharedStringTablePart>().FirstOrDefault();
+            value = stringTable?.SharedStringTable.ElementAt(int.Parse(value)).InnerText;
+        }
+
+        return value;
     }
-
-    return value;
-}
-
-private static string GetFormattedCellValue(WorkbookPart workbookPart, Cell cell, double numericValue)
-{
-    if (cell.StyleIndex == null) return numericValue.ToString(); // No specific style applied
-
-    Stylesheet stylesheet = workbookPart.WorkbookStylesPart.Stylesheet;
-    CellFormat cellFormat = (CellFormat)stylesheet.CellFormats
-        .ElementAt((int)cell.StyleIndex.Value);
-
-    uint numberFormatId = cellFormat.NumberFormatId?.Value ?? 0;
-
-    // Handle standard number formats
-    return ApplyNumberFormat(numberFormatId, numericValue);
-}
-
-private static string ApplyNumberFormat(uint numberFormatId, double numericValue)
-{
-    return numberFormatId switch
-    {
-        1 => numericValue.ToString("0"),                // Integer
-        2 => numericValue.ToString("0.00"),            // Decimal with 2 places
-        3 => numericValue.ToString("#,##0"),           // Comma-separated integer
-        4 => numericValue.ToString("#,##0.00"),        // Comma-separated with 2 decimals
-        44 => numericValue.ToString("#,##0.00"),       // Custom number format
-        _ => numericValue.ToString("G"),               // General format (fallback)
-    };
 }
