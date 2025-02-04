@@ -1,0 +1,22 @@
+private DataSet ExcelToDataSet(string sourceFile)
+{
+    OleDbConnection conExcel;
+    OleDbDataAdapter daExcel;
+    conExcel = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sourceFile + ";Extended Properties='Excel 12.0;HDR=Yes;IMEX=1'");
+    daExcel = new OleDbDataAdapter("select * from [" + "Veri Giriş Sayfası" + "$]", conExcel);
+    DataSet dataSet = new DataSet();
+    try
+    {
+        daExcel.Fill(dataSet);
+    }
+    catch (Exception ex)
+    {
+        if (ex.Message.Contains("Not a legal OleAut date."))
+        { throw new Exception("Excel dosyası okunurken hata oluştu. İpucu: Excel içine tarih girmiş olabilir misiniz?");}
+        else if (ex.Message.Contains("'Veri Giriş Sayfası$' is not a valid name."))
+        { throw new Exception("Excel dosyası okunurken hata oluştu. İpucu: Doğru Excel dosyasını (EVAS Döviz Aylık Vaziyet Bildirim Exceli) girdiğinizden emin misiniz?");}
+        else 
+        { throw new Exception("Excel dosyası okunurken hata oluştu. Hata Mesajı: " + ex.Message ); }
+    }
+    return dataSet;
+}
