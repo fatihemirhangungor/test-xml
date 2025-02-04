@@ -20,3 +20,78 @@ private DataSet ExcelToDataSet(string sourceFile)
     }
     return dataSet;
 }
+
+
+
+using System;
+using System.Data;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+
+private DataSet ExcelToDataSet(string sourceFile)
+{
+    DataSet dataSet = new DataSet();
+    DataTable dataTable = new DataTable("Veri Giriş Sayfası");
+    dataSet.Tables.Add(dataTable);
+
+    using (SpreadsheetDocument spreadsheetDocument = SpreadsheetDocument.Open(sourceFile, false))
+    {
+        WorkbookPart workbookPart = spreadsheetDocument.WorkbookPart;
+        Sheet sheet = workbookPart.Workbook.Descendants<Sheet>().FirstOrDefault(s => s.Name == "Veri Giriş Sayfası");
+        
+        if (sheet == null)
+        {
+            throw new Exception("Excel dosyası okunurken hata oluştu. İpucu: Doğru Excel dosyasını (EVAS Döviz Aylık Vaziyet Bildirim Exceli) girdiğinizden emin misiniz?");
+        }
+
+        WorksheetPart worksheetPart = (WorksheetPart)(workbookPart.GetPartById(sheet.Id));
+        SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
+
+        bool firstRow = true;
+        foreach (Row row in sheetData.Descendants<Row>())
+        {
+            DataRow dataRow = dataTable.NewRow();
+
+            int columnIndex = 0;
+            foreach (Cell cell in row.Descendants<Cell>())
+            {
+                string cellValue = GetCellValue(spreadsheetDocument, cell);
+
+                if (firstRow)
+                {
+                    dataTable.Columns.Add(cellValue);
+                }
+                else
+                {
+                    dataRow[columnIndex] = cellValue;
+                }
+                columnIndex++;
+            }
+
+            if (!firstRow)
+            {
+                dataTable.Rows.Add(dataRow);
+            }
+
+            firstRow = false;
+        }
+    }
+
+    return dataSet;
+}
+
+private string GetCellValue(SpreadsheetDocument doc, Cell cell)
+{
+    SharedStringTablePart stringTablePart = doc.WorkbookPart.SharedStringTablePart;
+    string value = cell.CellValue.InnerXml;
+
+    if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
+    {
+        return stringTablePart.SharedStringTable.ChildElements[Int32.Parse(value)].InnerText;
+    }
+    else
+    {
+        return value;
+    }
+}
+
