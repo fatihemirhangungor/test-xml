@@ -1,24 +1,23 @@
 string filePath = "path_to_your_excel_file.xlsx";
 
-        FileInfo fileInfo = new FileInfo(filePath);
-        using (ExcelPackage package = new ExcelPackage(fileInfo))
+        using (XLWorkbook workbook = new XLWorkbook(filePath))
         {
-            ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
+            IXLWorksheet worksheet = workbook.Worksheet(1);
             DataTable dataTable = new DataTable();
             
             // Add columns to DataTable
-            for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
+            foreach (IXLColumn column in worksheet.Columns())
             {
-                dataTable.Columns.Add(worksheet.Cells[1, col].Text);
+                dataTable.Columns.Add(column.Name);
             }
             
             // Add rows to DataTable
-            for (int row = 2; row <= worksheet.Dimension.End.Row; row++)
+            foreach (IXLRow row in worksheet.Rows())
             {
                 DataRow dataRow = dataTable.NewRow();
-                for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
+                foreach (var cell in row.Cells())
                 {
-                    dataRow[col - 1] = worksheet.Cells[row, col].Text;
+                    dataRow[cell.Address.ColumnNumber - 1] = cell.Value;
                 }
                 dataTable.Rows.Add(dataRow);
             }
