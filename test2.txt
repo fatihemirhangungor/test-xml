@@ -95,3 +95,60 @@ private string GetCellValue(SpreadsheetDocument doc, Cell cell)
     }
 }
 
+
+
+void CompareDataSets(DataSet ds1, DataSet ds2)
+    {
+        if (ds1.Tables.Count != ds2.Tables.Count)
+        {
+            Console.WriteLine("Datasets have a different number of tables.");
+            return;
+        }
+
+        for (int i = 0; i < ds1.Tables.Count; i++)
+        {
+            DataTable table1 = ds1.Tables[i];
+            DataTable table2 = ds2.Tables[i];
+
+            Console.WriteLine($"Comparing Table: {table1.TableName}");
+
+            // Compare column structure
+            if (table1.Columns.Count != table2.Columns.Count)
+            {
+                Console.WriteLine($"Table {table1.TableName} has different column count.");
+                continue;
+            }
+
+            // Compare row count
+            if (table1.Rows.Count != table2.Rows.Count)
+            {
+                Console.WriteLine($"Table {table1.TableName} has different row count.");
+            }
+
+            // Compare row data
+            for (int rowIndex = 0; rowIndex < table1.Rows.Count; rowIndex++)
+            {
+                if (rowIndex >= table2.Rows.Count)
+                {
+                    Console.WriteLine($"Table {table1.TableName}: Extra row found in Dataset 1 at index {rowIndex}");
+                    continue;
+                }
+
+                DataRow row1 = table1.Rows[rowIndex];
+                DataRow row2 = table2.Rows[rowIndex];
+
+                for (int colIndex = 0; colIndex < table1.Columns.Count; colIndex++)
+                {
+                    string columnName = table1.Columns[colIndex].ColumnName;
+                    object value1 = row1[colIndex];
+                    object value2 = row2[colIndex];
+
+                    if (!object.Equals(value1, value2))
+                    {
+                        Console.WriteLine($"Mismatch in table {table1.TableName}, row {rowIndex}, column {columnName}: {value1} != {value2}");
+                    }
+                }
+            }
+        }
+    }
+
