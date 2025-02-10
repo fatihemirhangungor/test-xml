@@ -1,154 +1,35 @@
-private DataSet ExcelToDataSet(string sourceFile)
-{
-    OleDbConnection conExcel;
-    OleDbDataAdapter daExcel;
-    conExcel = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sourceFile + ";Extended Properties='Excel 12.0;HDR=Yes;IMEX=1'");
-    daExcel = new OleDbDataAdapter("select * from [" + "Veri Giriş Sayfası" + "$]", conExcel);
-    DataSet dataSet = new DataSet();
-    try
-    {
-        daExcel.Fill(dataSet);
-    }
-    catch (Exception ex)
-    {
-        if (ex.Message.Contains("Not a legal OleAut date."))
-        { throw new Exception("Excel dosyası okunurken hata oluştu. İpucu: Excel içine tarih girmiş olabilir misiniz?");}
-        else if (ex.Message.Contains("'Veri Giriş Sayfası$' is not a valid name."))
-        { throw new Exception("Excel dosyası okunurken hata oluştu. İpucu: Doğru Excel dosyasını (EVAS Döviz Aylık Vaziyet Bildirim Exceli) girdiğinizden emin misiniz?");}
-        else 
-        { throw new Exception("Excel dosyası okunurken hata oluştu. Hata Mesajı: " + ex.Message ); }
-    }
-    return dataSet;
-}
+string filePath = "path_to_your_excel_file.xlsx";
 
-
-
-using System;
-using System.Data;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Spreadsheet;
-
-private DataSet ExcelToDataSet(string sourceFile)
-{
-    DataSet dataSet = new DataSet();
-    DataTable dataTable = new DataTable("Veri Giriş Sayfası");
-    dataSet.Tables.Add(dataTable);
-
-    using (SpreadsheetDocument spreadsheetDocument = SpreadsheetDocument.Open(sourceFile, false))
-    {
-        WorkbookPart workbookPart = spreadsheetDocument.WorkbookPart;
-        Sheet sheet = workbookPart.Workbook.Descendants<Sheet>().FirstOrDefault(s => s.Name == "Veri Giriş Sayfası");
-        
-        if (sheet == null)
+        FileInfo fileInfo = new FileInfo(filePath);
+        using (ExcelPackage package = new ExcelPackage(fileInfo))
         {
-            throw new Exception("Excel dosyası okunurken hata oluştu. İpucu: Doğru Excel dosyasını (EVAS Döviz Aylık Vaziyet Bildirim Exceli) girdiğinizden emin misiniz?");
-        }
-
-        WorksheetPart worksheetPart = (WorksheetPart)(workbookPart.GetPartById(sheet.Id));
-        SheetData sheetData = worksheetPart.Worksheet.GetFirstChild<SheetData>();
-
-        bool firstRow = true;
-        foreach (Row row in sheetData.Descendants<Row>())
-        {
-            DataRow dataRow = dataTable.NewRow();
-
-            int columnIndex = 0;
-            foreach (Cell cell in row.Descendants<Cell>())
+            ExcelWorksheet worksheet = package.Workbook.Worksheets[0];
+            DataTable dataTable = new DataTable();
+            
+            // Add columns to DataTable
+            for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
             {
-                string cellValue = GetCellValue(spreadsheetDocument, cell);
-
-                if (firstRow)
-                {
-                    dataTable.Columns.Add(cellValue);
-                }
-                else
-                {
-                    dataRow[columnIndex] = cellValue;
-                }
-                columnIndex++;
+                dataTable.Columns.Add(worksheet.Cells[1, col].Text);
             }
-
-            if (!firstRow)
+            
+            // Add rows to DataTable
+            for (int row = 2; row <= worksheet.Dimension.End.Row; row++)
             {
+                DataRow dataRow = dataTable.NewRow();
+                for (int col = 1; col <= worksheet.Dimension.End.Column; col++)
+                {
+                    dataRow[col - 1] = worksheet.Cells[row, col].Text;
+                }
                 dataTable.Rows.Add(dataRow);
             }
-
-            firstRow = false;
-        }
-    }
-
-    return dataSet;
-}
-
-private string GetCellValue(SpreadsheetDocument doc, Cell cell)
-{
-    SharedStringTablePart stringTablePart = doc.WorkbookPart.SharedStringTablePart;
-    string value = cell.CellValue.InnerXml;
-
-    if (cell.DataType != null && cell.DataType.Value == CellValues.SharedString)
-    {
-        return stringTablePart.SharedStringTable.ChildElements[Int32.Parse(value)].InnerText;
-    }
-    else
-    {
-        return value;
-    }
-}
-
-
-
-void CompareDataSets(DataSet ds1, DataSet ds2)
-    {
-        if (ds1.Tables.Count != ds2.Tables.Count)
-        {
-            Console.WriteLine("Datasets have a different number of tables.");
-            return;
-        }
-
-        for (int i = 0; i < ds1.Tables.Count; i++)
-        {
-            DataTable table1 = ds1.Tables[i];
-            DataTable table2 = ds2.Tables[i];
-
-            Console.WriteLine($"Comparing Table: {table1.TableName}");
-
-            // Compare column structure
-            if (table1.Columns.Count != table2.Columns.Count)
+            
+            // Display data
+            foreach (DataRow row in dataTable.Rows)
             {
-                Console.WriteLine($"Table {table1.TableName} has different column count.");
-                continue;
-            }
-
-            // Compare row count
-            if (table1.Rows.Count != table2.Rows.Count)
-            {
-                Console.WriteLine($"Table {table1.TableName} has different row count.");
-            }
-
-            // Compare row data
-            for (int rowIndex = 0; rowIndex < table1.Rows.Count; rowIndex++)
-            {
-                if (rowIndex >= table2.Rows.Count)
+                foreach (var item in row.ItemArray)
                 {
-                    Console.WriteLine($"Table {table1.TableName}: Extra row found in Dataset 1 at index {rowIndex}");
-                    continue;
+                    Console.Write(item + " ");
                 }
-
-                DataRow row1 = table1.Rows[rowIndex];
-                DataRow row2 = table2.Rows[rowIndex];
-
-                for (int colIndex = 0; colIndex < table1.Columns.Count; colIndex++)
-                {
-                    string columnName = table1.Columns[colIndex].ColumnName;
-                    object value1 = row1[colIndex];
-                    object value2 = row2[colIndex];
-
-                    if (!object.Equals(value1, value2))
-                    {
-                        Console.WriteLine($"Mismatch in table {table1.TableName}, row {rowIndex}, column {columnName}: {value1} != {value2}");
-                    }
-                }
+                Console.WriteLine();
             }
         }
-    }
-
