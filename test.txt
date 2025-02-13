@@ -108,3 +108,17 @@ static string GetCellValue(Cell cell, WorkbookPart workbookPart)
 }
 
 }
+
+
+
+
+private DataSet ExcelToDataSet(string sourceFile, string sheetName)
+{
+    OleDbConnection conExcel;
+    OleDbDataAdapter daExcel;
+    conExcel = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sourceFile + ";Extended Properties='Excel 12.0;HDR=Yes;IMEX=1'"); //
+    daExcel = new OleDbDataAdapter("select * from [" + sheetName + "$]", conExcel);
+    DataSet dataSet = new DataSet();
+    daExcel.Fill(dataSet);
+    return dataSet;
+}
