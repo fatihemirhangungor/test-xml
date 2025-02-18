@@ -132,3 +132,75 @@ foreach (XmlNode Node in list)
     }
 }
 
+
+
+
+foreach (XmlNode Node in list)
+{
+    // YENİ SAYFA OKU
+    if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
+    {
+        using (var package = new ExcelPackage(new FileInfo(sFileXlsEft)))
+        {
+            var worksheet = package.Workbook.Worksheets[Node.ChildNodes[0].InnerText];
+            var dtEft = new DataTable();
+            
+            bool firstRow = true;
+            foreach (var row in worksheet.Cells)
+            {
+                if (firstRow)
+                {
+                    foreach (var cell in row)
+                    {
+                        dtEft.Columns.Add(cell.Text);
+                    }
+                    firstRow = false;
+                }
+                else
+                {
+                    var dataRow = dtEft.NewRow();
+                    int i = 0;
+                    foreach (var cell in row)
+                    {
+                        dataRow[i] = cell.Text;
+                        i++;
+                    }
+                    dtEft.Rows.Add(dataRow);
+                }
+            }
+        }
+    }
+
+    if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
+    {
+        using (var package = new ExcelPackage(new FileInfo(sFileXlsHavale)))
+        {
+            var worksheet = package.Workbook.Worksheets[Node.ChildNodes[0].InnerText];
+            var dtHavale = new DataTable();
+            
+            bool firstRow = true;
+            foreach (var row in worksheet.Cells)
+            {
+                if (firstRow)
+                {
+                    foreach (var cell in row)
+                    {
+                        dtHavale.Columns.Add(cell.Text);
+                    }
+                    firstRow = false;
+                }
+                else
+                {
+                    var dataRow = dtHavale.NewRow();
+                    int i = 0;
+                    foreach (var cell in row)
+                    {
+                        dataRow[i] = cell.Text;
+                        i++;
+                    }
+                    dtHavale.Rows.Add(dataRow);
+                }
+            }
+        }
+    }
+}
