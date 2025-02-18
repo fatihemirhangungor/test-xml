@@ -57,3 +57,78 @@ foreach (XmlNode Node in list)
         daHavale.Fill(dtHavale);
     }
 }
+
+
+using ClosedXML.Excel;
+using System.Data;
+
+//... other necessary using directives
+
+foreach (XmlNode Node in list)
+{
+    // YENİ SAYFA OKU
+    if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
+    {
+        using (var workbook = new XLWorkbook(sFileXlsEft))
+        {
+            var worksheet = workbook.Worksheet(Node.ChildNodes[0].InnerText);
+            var dtEft = new DataTable();
+            
+            bool firstRow = true;
+            foreach (IXLRow row in worksheet.Rows())
+            {
+                if (firstRow)
+                {
+                    foreach (IXLCell cell in row.Cells())
+                    {
+                        dtEft.Columns.Add(cell.Value.ToString());
+                    }
+                    firstRow = false;
+                }
+                else
+                {
+                    dtEft.Rows.Add();
+                    int i = 0;
+                    foreach (IXLCell cell in row.Cells())
+                    {
+                        dtEft.Rows[dtEft.Rows.Count - 1][i] = cell.Value.ToString();
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+
+    if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
+    {
+        using (var workbook = new XLWorkbook(sFileXlsHavale))
+        {
+            var worksheet = workbook.Worksheet(Node.ChildNodes[0].InnerText);
+            var dtHavale = new DataTable();
+            
+            bool firstRow = true;
+            foreach (IXLRow row in worksheet.Rows())
+            {
+                if (firstRow)
+                {
+                    foreach (IXLCell cell in row.Cells())
+                    {
+                        dtHavale.Columns.Add(cell.Value.ToString());
+                    }
+                    firstRow = false;
+                }
+                else
+                {
+                    dtHavale.Rows.Add();
+                    int i = 0;
+                    foreach (IXLCell cell in row.Cells())
+                    {
+                        dtHavale.Rows[dtHavale.Rows.Count - 1][i] = cell.Value.ToString();
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+}
+
