@@ -32,3 +32,28 @@ string filePath = "path_to_your_excel_file.xlsx";
                 Console.WriteLine();
             }
         }
+
+
+foreach (XmlNode Node in list)
+{
+    //YENİ SAYFA OKU
+    OleDbConnection conEft;
+    OleDbDataAdapter daEft;
+    OleDbConnection conHavale;
+    OleDbDataAdapter daHavale;
+    if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
+    {
+        conEft = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sFileXlsEft + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=1\"");
+        daEft = new OleDbDataAdapter("select * from [" + Node.ChildNodes[0].InnerText + "$]", conEft);
+        dtEft = new DataTable();
+        daEft.Fill(dtEft);
+    }
+    if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
+    {
+        conHavale = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sFileXlsHavale + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=1\"");
+        //conHavale = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sFileXlsHavale + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=1\"");
+        daHavale = new OleDbDataAdapter("select * from [" + Node.ChildNodes[0].InnerText + "$]", conHavale);
+        dtHavale = new DataTable();
+        daHavale.Fill(dtHavale);
+    }
+}
