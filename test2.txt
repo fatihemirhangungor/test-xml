@@ -134,73 +134,68 @@ foreach (XmlNode Node in list)
 
 
 
-
 foreach (XmlNode Node in list)
 {
     // YENİ SAYFA OKU
     if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
     {
-        using (var package = new ExcelPackage(new FileInfo(sFileXlsEft)))
+        WorkBook workbook = WorkBook.Load(sFileXlsEft);
+        WorkSheet worksheet = workbook.GetWorkSheet(Node.ChildNodes[0].InnerText);
+        DataTable dtEft = new DataTable();
+        
+        bool firstRow = true;
+        foreach (var row in worksheet.Rows)
         {
-            var worksheet = package.Workbook.Worksheets[Node.ChildNodes[0].InnerText];
-            var dtEft = new DataTable();
-            
-            bool firstRow = true;
-            foreach (var row in worksheet.Cells)
+            if (firstRow)
             {
-                if (firstRow)
+                foreach (var cell in row)
                 {
-                    foreach (var cell in row)
-                    {
-                        dtEft.Columns.Add(cell.Text);
-                    }
-                    firstRow = false;
+                    dtEft.Columns.Add(cell.StringValue);
                 }
-                else
+                firstRow = false;
+            }
+            else
+            {
+                var dataRow = dtEft.NewRow();
+                int i = 0;
+                foreach (var cell in row)
                 {
-                    var dataRow = dtEft.NewRow();
-                    int i = 0;
-                    foreach (var cell in row)
-                    {
-                        dataRow[i] = cell.Text;
-                        i++;
-                    }
-                    dtEft.Rows.Add(dataRow);
+                    dataRow[i] = cell.StringValue;
+                    i++;
                 }
+                dtEft.Rows.Add(dataRow);
             }
         }
     }
 
     if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
     {
-        using (var package = new ExcelPackage(new FileInfo(sFileXlsHavale)))
+        WorkBook workbook = WorkBook.Load(sFileXlsHavale);
+        WorkSheet worksheet = workbook.GetWorkSheet(Node.ChildNodes[0].InnerText);
+        DataTable dtHavale = new DataTable();
+        
+        bool firstRow = true;
+        foreach (var row in worksheet.Rows)
         {
-            var worksheet = package.Workbook.Worksheets[Node.ChildNodes[0].InnerText];
-            var dtHavale = new DataTable();
-            
-            bool firstRow = true;
-            foreach (var row in worksheet.Cells)
+            if (firstRow)
             {
-                if (firstRow)
+                foreach (var cell in row)
                 {
-                    foreach (var cell in row)
-                    {
-                        dtHavale.Columns.Add(cell.Text);
-                    }
-                    firstRow = false;
+                    dtHavale.Columns.Add(cell.StringValue);
                 }
-                else
+                firstRow = false;
+            }
+            else
+            {
+                var dataRow = dtHavale.NewRow();
+                int i = 0;
+                foreach (var cell in row)
                 {
-                    var dataRow = dtHavale.NewRow();
-                    int i = 0;
-                    foreach (var cell in row)
-                    {
-                        dataRow[i] = cell.Text;
-                        i++;
-                    }
-                    dtHavale.Rows.Add(dataRow);
+                    dataRow[i] = cell.StringValue;
+                    i++;
                 }
+                dtHavale.Rows.Add(dataRow);
             }
         }
     }
-}
+
