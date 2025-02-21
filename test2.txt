@@ -1,99 +1,35 @@
-string filePath = "path_to_your_excel_file.xlsx";
-
-        using (XLWorkbook workbook = new XLWorkbook(filePath))
-        {
-            IXLWorksheet worksheet = workbook.Worksheet(1);
-            DataTable dataTable = new DataTable();
-            
-            // Add columns to DataTable
-            foreach (IXLColumn column in worksheet.Columns())
-            {
-                dataTable.Columns.Add(column.Name);
-            }
-            
-            // Add rows to DataTable
-            foreach (IXLRow row in worksheet.Rows())
-            {
-                DataRow dataRow = dataTable.NewRow();
-                foreach (var cell in row.Cells())
-                {
-                    dataRow[cell.Address.ColumnNumber - 1] = cell.Value;
-                }
-                dataTable.Rows.Add(dataRow);
-            }
-            
-            // Display data
-            foreach (DataRow row in dataTable.Rows)
-            {
-                foreach (var item in row.ItemArray)
-                {
-                    Console.Write(item + " ");
-                }
-                Console.WriteLine();
-            }
-        }
-
-
-foreach (XmlNode Node in list)
-{
-    //YENİ SAYFA OKU
-    OleDbConnection conEft;
-    OleDbDataAdapter daEft;
-    OleDbConnection conHavale;
-    OleDbDataAdapter daHavale;
-    if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
-    {
-        conEft = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sFileXlsEft + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=1\"");
-        daEft = new OleDbDataAdapter("select * from [" + Node.ChildNodes[0].InnerText + "$]", conEft);
-        dtEft = new DataTable();
-        daEft.Fill(dtEft);
-    }
-    if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
-    {
-        conHavale = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sFileXlsHavale + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=1\"");
-        //conHavale = new OleDbConnection(@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + sFileXlsHavale + ";Extended Properties=\"Excel 12.0;HDR=Yes;IMEX=1\"");
-        daHavale = new OleDbDataAdapter("select * from [" + Node.ChildNodes[0].InnerText + "$]", conHavale);
-        dtHavale = new DataTable();
-        daHavale.Fill(dtHavale);
-    }
-}
-
-
-using ClosedXML.Excel;
-using System.Data;
-
-//... other necessary using directives
-
 foreach (XmlNode Node in list)
 {
     // YENİ SAYFA OKU
     if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
     {
-        using (var workbook = new XLWorkbook(sFileXlsEft))
+        using (var stream = new FileStream(sFileXlsEft, FileMode.Open, FileAccess.Read))
         {
-            var worksheet = workbook.Worksheet(Node.ChildNodes[0].InnerText);
-            var dtEft = new DataTable();
+            IWorkbook workbook = new XSSFWorkbook(stream);
+            ISheet sheet = workbook.GetSheetAt(0);
+            DataTable dtEft = new DataTable();
             
             bool firstRow = true;
-            foreach (IXLRow row in worksheet.Rows())
+            foreach (IRow row in sheet)
             {
                 if (firstRow)
                 {
-                    foreach (IXLCell cell in row.Cells())
+                    foreach (ICell cell in row.Cells)
                     {
-                        dtEft.Columns.Add(cell.Value.ToString());
+                        dtEft.Columns.Add(cell.StringCellValue);
                     }
                     firstRow = false;
                 }
                 else
                 {
-                    dtEft.Rows.Add();
+                    var dataRow = dtEft.NewRow();
                     int i = 0;
-                    foreach (IXLCell cell in row.Cells())
+                    foreach (ICell cell in row)
                     {
-                        dtEft.Rows[dtEft.Rows.Count - 1][i] = cell.Value.ToString();
+                        dataRow[i] = cell.StringCellValue;
                         i++;
                     }
+                    dtEft.Rows.Add(dataRow);
                 }
             }
         }
@@ -101,101 +37,35 @@ foreach (XmlNode Node in list)
 
     if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
     {
-        using (var workbook = new XLWorkbook(sFileXlsHavale))
+        using (var stream = new FileStream(sFileXlsHavale, FileMode.Open, FileAccess.Read))
         {
-            var worksheet = workbook.Worksheet(Node.ChildNodes[0].InnerText);
-            var dtHavale = new DataTable();
+            IWorkbook workbook = new XSSFWorkbook(stream);
+            ISheet sheet = workbook.GetSheetAt(0);
+            DataTable dtHavale = new DataTable();
             
             bool firstRow = true;
-            foreach (IXLRow row in worksheet.Rows())
+            foreach (IRow row in sheet)
             {
                 if (firstRow)
                 {
-                    foreach (IXLCell cell in row.Cells())
+                    foreach (ICell cell in row.Cells)
                     {
-                        dtHavale.Columns.Add(cell.Value.ToString());
+                        dtHavale.Columns.Add(cell.StringCellValue);
                     }
                     firstRow = false;
                 }
                 else
                 {
-                    dtHavale.Rows.Add();
+                    var dataRow = dtHavale.NewRow();
                     int i = 0;
-                    foreach (IXLCell cell in row.Cells())
+                    foreach (ICell cell in row)
                     {
-                        dtHavale.Rows[dtHavale.Rows.Count - 1][i] = cell.Value.ToString();
+                        dataRow[i] = cell.StringCellValue;
                         i++;
                     }
+                    dtHavale.Rows.Add(dataRow);
                 }
             }
         }
     }
 }
-
-
-
-foreach (XmlNode Node in list)
-{
-    // YENİ SAYFA OKU
-    if (txtlblSecilenEftDosya.Text.ToUpper().Contains("EFT"))
-    {
-        WorkBook workbook = WorkBook.Load(sFileXlsEft);
-        WorkSheet worksheet = workbook.GetWorkSheet(Node.ChildNodes[0].InnerText);
-        DataTable dtEft = new DataTable();
-        
-        bool firstRow = true;
-        foreach (var row in worksheet.Rows)
-        {
-            if (firstRow)
-            {
-                foreach (var cell in row)
-                {
-                    dtEft.Columns.Add(cell.StringValue);
-                }
-                firstRow = false;
-            }
-            else
-            {
-                var dataRow = dtEft.NewRow();
-                int i = 0;
-                foreach (var cell in row)
-                {
-                    dataRow[i] = cell.StringValue;
-                    i++;
-                }
-                dtEft.Rows.Add(dataRow);
-            }
-        }
-    }
-
-    if (txtlblSecilenHvlDosya.Text.ToUpper().Contains("HAVALE"))
-    {
-        WorkBook workbook = WorkBook.Load(sFileXlsHavale);
-        WorkSheet worksheet = workbook.GetWorkSheet(Node.ChildNodes[0].InnerText);
-        DataTable dtHavale = new DataTable();
-        
-        bool firstRow = true;
-        foreach (var row in worksheet.Rows)
-        {
-            if (firstRow)
-            {
-                foreach (var cell in row)
-                {
-                    dtHavale.Columns.Add(cell.StringValue);
-                }
-                firstRow = false;
-            }
-            else
-            {
-                var dataRow = dtHavale.NewRow();
-                int i = 0;
-                foreach (var cell in row)
-                {
-                    dataRow[i] = cell.StringValue;
-                    i++;
-                }
-                dtHavale.Rows.Add(dataRow);
-            }
-        }
-    }
-
